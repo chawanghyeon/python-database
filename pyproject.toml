@@ -8,6 +8,7 @@ packages = [{include = "python_database"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
+pre-commit = "^3.3.3"
 
 
 [build-system]
