@@ -37,11 +37,6 @@ COLUMN_USERNAME_SIZE = 32
 COLUMN_EMAIL_SIZE = 255
 
 
-class StatementType(Enum):
-    STATEMENT_INSERT = 0
-    STATEMENT_SELECT = 1
-
-
 class Row:
     def __init__(self):
         self.id = 0
@@ -128,3 +123,144 @@ LEAF_NODE_NEXT_LEAF_OFFSET = LEAF_NODE_NUM_CELLS_OFFSET + LEAF_NODE_NUM_CELLS_SI
 LEAF_NODE_HEADER_SIZE = (
     COMMON_NODE_HEADER_SIZE + LEAF_NODE_NUM_CELLS_SIZE + LEAF_NODE_NEXT_LEAF_SIZE
 )
+
+import sys
+import struct
+
+LEAF_NODE_KEY_SIZE = 4  # Assuming 4 bytes as uint32_t
+LEAF_NODE_KEY_OFFSET = 0
+LEAF_NODE_VALUE_SIZE = ROW_SIZE  # Assuming ROW_SIZE is predefined
+LEAF_NODE_VALUE_OFFSET = LEAF_NODE_KEY_OFFSET + LEAF_NODE_KEY_SIZE
+LEAF_NODE_CELL_SIZE = LEAF_NODE_KEY_SIZE + LEAF_NODE_VALUE_SIZE
+LEAF_NODE_SPACE_FOR_CELLS = (
+    PAGE_SIZE - LEAF_NODE_HEADER_SIZE
+)  # Assuming PAGE_SIZE and LEAF_NODE_HEADER_SIZE are predefined
+LEAF_NODE_MAX_CELLS = LEAF_NODE_SPACE_FOR_CELLS // LEAF_NODE_CELL_SIZE
+LEAF_NODE_RIGHT_SPLIT_COUNT = (LEAF_NODE_MAX_CELLS + 1) // 2
+LEAF_NODE_LEFT_SPLIT_COUNT = (LEAF_NODE_MAX_CELLS + 1) - LEAF_NODE_RIGHT_SPLIT_COUNT
+
+
+class Node:
+    def __init__(self):
+        self.data = bytearray()  # Placeholder for void* node equivalent
+
+    def get_node_type(
+        self, NODE_TYPE_OFFSET
+    ):  # Assuming NODE_TYPE_OFFSET is predefined
+        return struct.unpack("B", self.data[NODE_TYPE_OFFSET : NODE_TYPE_OFFSET + 1])[0]
+
+    def set_node_type(
+        self, type, NODE_TYPE_OFFSET
+    ):  # Assuming NODE_TYPE_OFFSET is predefined
+        self.data[NODE_TYPE_OFFSET : NODE_TYPE_OFFSET + 1] = struct.pack("B", type)
+
+    def is_node_root(self, IS_ROOT_OFFSET):  # Assuming IS_ROOT_OFFSET is predefined
+        return bool(
+            struct.unpack("B", self.data[IS_ROOT_OFFSET : IS_ROOT_OFFSET + 1])[0]
+        )
+
+    def set_node_root(
+        self, is_root, IS_ROOT_OFFSET
+    ):  # Assuming IS_ROOT_OFFSET is predefined
+        self.data[IS_ROOT_OFFSET : IS_ROOT_OFFSET + 1] = struct.pack("B", int(is_root))
+
+    def node_parent(
+        self, PARENT_POINTER_OFFSET
+    ):  # Assuming PARENT_POINTER_OFFSET is predefined
+        return struct.unpack(
+            "I", self.data[PARENT_POINTER_OFFSET : PARENT_POINTER_OFFSET + 4]
+        )[0]
+
+    def internal_node_num_keys(
+        self, INTERNAL_NODE_NUM_KEYS_OFFSET
+    ):  # Assuming INTERNAL_NODE_NUM_KEYS_OFFSET is predefined
+        return struct.unpack(
+            "I",
+            self.data[
+                INTERNAL_NODE_NUM_KEYS_OFFSET : INTERNAL_NODE_NUM_KEYS_OFFSET + 4
+            ],
+        )[0]
+
+    def internal_node_right_child(
+        self, INTERNAL_NODE_RIGHT_CHILD_OFFSET
+    ):  # Assuming INTERNAL_NODE_RIGHT_CHILD_OFFSET is predefined
+        return struct.unpack(
+            "I",
+            self.data[
+                INTERNAL_NODE_RIGHT_CHILD_OFFSET : INTERNAL_NODE_RIGHT_CHILD_OFFSET + 4
+            ],
+        )[0]
+
+    def internal_node_cell(
+        self, cell_num, INTERNAL_NODE_HEADER_SIZE, INTERNAL_NODE_CELL_SIZE
+    ):  # Assuming INTERNAL_NODE_HEADER_SIZE and INTERNAL_NODE_CELL_SIZE are predefined
+        return self.data[
+            INTERNAL_NODE_HEADER_SIZE + cell_num * INTERNAL_NODE_CELL_SIZE :
+        ]
+
+    def internal_node_child(
+        self,
+        child_num,
+        INTERNAL_NODE_NUM_KEYS_OFFSET,
+        INTERNAL_NODE_RIGHT_CHILD_OFFSET,
+        INTERNAL_NODE_HEADER_SIZE,
+        INTERNAL_NODE_CELL_SIZE,
+        INVALID_PAGE_NUM,
+    ):  # Assuming INTERNAL_NODE_NUM_KEYS_OFFSET, INTERNAL_NODE_RIGHT_CHILD_OFFSET, INTERNAL_NODE_HEADER_SIZE, INTERNAL_NODE_CELL_SIZE and INVALID_PAGE_NUM are predefined
+        num_keys = self.internal_node_num_keys(INTERNAL_NODE_NUM_KEYS_OFFSET)
+        if child_num > num_keys:
+            sys.exit(f"Tried to access child_num {child_num} > num_keys {num_keys}")
+        elif child_num == num_keys:
+            right_child = self.internal_node_right_child(
+                INTERNAL_NODE_RIGHT_CHILD_OFFSET
+            )
+            if right_child == INVALID_PAGE_NUM:
+                sys.exit("Tried to access right child of node, but was invalid page")
+            return right_child
+        else:
+            child = self.internal_node_cell(
+                child_num, INTERNAL_NODE_HEADER_SIZE, INTERNAL_NODE_CELL_SIZE
+            )
+            if child == INVALID_PAGE_NUM:
+                sys.exit(
+                    f"Tried to access child {child_num} of node, but was invalid page"
+                )
+            return child
+
+    def internal_node_key(
+        self, key_num, INTERNAL_NODE_CHILD_SIZE
+    ):  # Assuming INTERNAL_NODE_CHILD_SIZE is predefined
+        return self.internal_node_cell(
+            key_num, INTERNAL_NODE_HEADER_SIZE, INTERNAL_NODE_CELL_SIZE
+        )[INTERNAL_NODE_CHILD_SIZE:]
+
+    def leaf_node_num_cells(
+        self, LEAF_NODE_NUM_CELLS_OFFSET
+    ):  # Assuming LEAF_NODE_NUM_CELLS_OFFSET is predefined
+        return struct.unpack(
+            "I", self.data[LEAF_NODE_NUM_CELLS_OFFSET : LEAF_NODE_NUM_CELLS_OFFSET + 4]
+        )[0]
+
+    def leaf_node_next_leaf(
+        self, LEAF_NODE_NEXT_LEAF_OFFSET
+    ):  # Assuming LEAF_NODE_NEXT_LEAF_OFFSET is predefined
+        return struct.unpack(
+            "I", self.data[LEAF_NODE_NEXT_LEAF_OFFSET : LEAF_NODE_NEXT_LEAF_OFFSET + 4]
+        )[0]
+
+    def leaf_node_cell(
+        self, cell_num, LEAF_NODE_HEADER_SIZE, LEAF_NODE_CELL_SIZE
+    ):  # Assuming LEAF_NODE_HEADER_SIZE and LEAF_NODE_CELL_SIZE are predefined
+        return self.data[LEAF_NODE_HEADER_SIZE + cell_num * LEAF_NODE_CELL_SIZE :]
+
+    def leaf_node_key(
+        self, cell_num, LEAF_NODE_HEADER_SIZE, LEAF_NODE_CELL_SIZE
+    ):  # Assuming LEAF_NODE_HEADER_SIZE and LEAF_NODE_CELL_SIZE are predefined
+        return self.leaf_node_cell(cell_num, LEAF_NODE_HEADER_SIZE, LEAF_NODE_CELL_SIZE)
+
+    def leaf_node_value(
+        self, cell_num, LEAF_NODE_HEADER_SIZE, LEAF_NODE_CELL_SIZE, LEAF_NODE_KEY_SIZE
+    ):  # Assuming LEAF_NODE_HEADER_SIZE, LEAF_NODE_CELL_SIZE and LEAF_NODE_KEY_SIZE are predefined
+        return self.leaf_node_cell(
+            cell_num, LEAF_NODE_HEADER_SIZE, LEAF_NODE_CELL_SIZE
+        )[LEAF_NODE_KEY_SIZE:]
