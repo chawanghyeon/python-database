@@ -264,3 +264,115 @@ class Node:
         return self.leaf_node_cell(
             cell_num, LEAF_NODE_HEADER_SIZE, LEAF_NODE_CELL_SIZE
         )[LEAF_NODE_KEY_SIZE:]
+
+
+import os
+import errno
+
+
+def get_page(pager, page_num):
+    if page_num > TABLE_MAX_PAGES:
+        raise Exception(
+            "Tried to fetch page number out of bounds. {} > {}".format(
+                page_num, TABLE_MAX_PAGES
+            )
+        )
+
+    if pager.pages[page_num] is None:
+        # Cache miss. Allocate memory and load from file.
+        page = bytearray(PAGE_SIZE)
+        num_pages = pager.file_length // PAGE_SIZE
+
+        # We might save a partial page at the end of the file
+        if pager.file_length % PAGE_SIZE:
+            num_pages += 1
+
+        if page_num <= num_pages:
+            os.lseek(pager.file_descriptor, page_num * PAGE_SIZE, os.SEEK_SET)
+            bytes_read = os.read(pager.file_descriptor, page)
+            if bytes_read == -1:
+                raise Exception(
+                    "Error reading file: {}".format(os.strerror(errno.errorcode))
+                )
+
+        pager.pages[page_num] = page
+
+        if page_num >= pager.num_pages:
+            pager.num_pages = page_num + 1
+
+    return pager.pages[page_num]
+
+
+def get_node_max_key(pager, node):
+    if get_node_type(node) == NODE_LEAF:
+        return leaf_node_key(node, leaf_node_num_cells(node) - 1)
+
+    right_child = get_page(pager, internal_node_right_child(node))
+    return get_node_max_key(pager, right_child)
+
+
+def print_constants():
+    print("ROW_SIZE: {}".format(ROW_SIZE))
+    print("COMMON_NODE_HEADER_SIZE: {}".format(COMMON_NODE_HEADER_SIZE))
+    print("LEAF_NODE_HEADER_SIZE: {}".format(LEAF_NODE_HEADER_SIZE))
+    print("LEAF_NODE_CELL_SIZE: {}".format(LEAF_NODE_CELL_SIZE))
+    print("LEAF_NODE_SPACE_FOR_CELLS: {}".format(LEAF_NODE_SPACE_FOR_CELLS))
+    print("LEAF_NODE_MAX_CELLS: {}".format(LEAF_NODE_MAX_CELLS))
+
+
+def indent(level):
+    for i in range(level):
+        print("  ", end="")
+
+
+def print_tree(pager, page_num, indentation_level):
+    node = get_page(pager, page_num)
+
+    if get_node_type(node) == NODE_LEAF:
+        num_keys = leaf_node_num_cells(node)
+        indent(indentation_level)
+        print("- leaf (size {})".format(num_keys))
+        for i in range(num_keys):
+            indent(indentation_level + 1)
+            print("- {}".format(leaf_node_key(node, i)))
+    elif get_node_type(node) == NODE_INTERNAL:
+        num_keys = internal_node_num_keys(node)
+        indent(indentation_level)
+        print("- internal (size {})".format(num_keys))
+        if num_keys > 0:
+            for i in range(num_keys):
+                child = internal_node_child(node, i)
+                print_tree(pager, child, indentation_level + 1)
+
+                indent(indentation_level + 1)
+                print("- key {}".format(internal_node_key(node, i)))
+
+            child = internal_node_right_child(node)
+            print_tree(pager, child, indentation_level + 1)
+
+
+def serialize_row(source, destination):
+    destination[ID_OFFSET : ID_OFFSET + ID_SIZE] = source.id.to_bytes(
+        ID_SIZE, byteorder="big"
+    )
+    destination[
+        USERNAME_OFFSET : USERNAME_OFFSET + USERNAME_SIZE
+    ] = source.username.encode()
+    destination[EMAIL_OFFSET : EMAIL_OFFSET + EMAIL_SIZE] = source.email.encode()
+
+
+def deserialize_row(source, destination):
+    destination.id = int.from_bytes(
+        source[ID_OFFSET : ID_OFFSET + ID_SIZE], byteorder="big"
+    )
+    destination.username = source[
+        USERNAME_OFFSET : USERNAME_OFFSET + USERNAME_SIZE
+    ].decode()
+    destination.email = source[EMAIL_OFFSET : EMAIL_OFFSET + EMAIL_SIZE].decode()
+
+
+def initialize_leaf_node(node):
+    set_node_type(node, NODE_LEAF)
+    set_node_root(node, False)
+    leaf_node_num_cells(node)[0] = 0
+    leaf_node_next_leaf(node)[0] = 0  # 0 represents no sibling
