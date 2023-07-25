@@ -30,6 +30,18 @@ def close_input_buffer(input_buffer):
     input_buffer.buffer = None
 
 
+class Statement:
+    def __init__(self, statement_type):
+        self.type = statement_type
+
+
+def execute_statement(statement):
+    if statement.type == "STATEMENT_INSERT":
+        print("This is where we would do an insert.")
+    elif statement.type == "STATEMENT_SELECT":
+        print("This is where we would do a select.")
+
+
 def main():
     input_buffer = InputBuffer()
     while True:
