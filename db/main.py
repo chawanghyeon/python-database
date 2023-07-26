@@ -1,5 +1,8 @@
 import sys
 
+import sys
+from enum import Enum
+
 
 class InputBuffer:
     def __init__(self):
@@ -28,6 +31,38 @@ def read_input(input_buffer):
 
 def close_input_buffer(input_buffer):
     input_buffer.buffer = None
+
+
+class MetaCommandResult(Enum):
+    UNRECOGNIZED_COMMAND = 1
+
+
+class StatementType(Enum):
+    INSERT = 1
+    SELECT = 2
+
+
+class PrepareResult(Enum):
+    SUCCESS = 1
+    UNRECOGNIZED_STATEMENT = 2
+
+
+def do_meta_command(input_buffer):
+    if input_buffer.buffer == ".exit":
+        sys.exit(0)
+    else:
+        return MetaCommandResult.UNRECOGNIZED_COMMAND
+
+
+def prepare_statement(input_buffer, statement):
+    if input_buffer.buffer.startswith("insert"):
+        statement.type = StatementType.INSERT
+        return PrepareResult.SUCCESS
+    if input_buffer.buffer == "select":
+        statement.type = StatementType.SELECT
+        return PrepareResult.SUCCESS
+
+    return PrepareResult.UNRECOGNIZED_STATEMENT
 
 
 class Statement:
