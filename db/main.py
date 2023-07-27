@@ -1,6 +1,4 @@
 import sys
-
-import sys
 from enum import Enum
 
 
