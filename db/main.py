@@ -81,11 +81,24 @@ def main():
         print_prompt()
         read_input(input_buffer)
 
-        if input_buffer.buffer == ".exit":
-            close_input_buffer(input_buffer)
-            exit(0)
-        else:
-            print(f"Unrecognized command '{input_buffer.buffer}'.")
+        if input_buffer.buffer[0] == ".":
+            meta_command_result = do_meta_command(input_buffer)
+            if meta_command_result == MetaCommandResult.UNRECOGNIZED_COMMAND:
+                print("Unrecognized command '{}'.".format(input_buffer.buffer))
+                continue
+            elif meta_command_result == MetaCommandResult.SUCCESS:
+                continue
+
+        statement = Statement()
+        prepare_result = prepare_statement(input_buffer, statement)
+        if prepare_result == PrepareResult.UNRECOGNIZED_STATEMENT:
+            print("Unrecognized keyword at start of '{}'.".format(input_buffer.buffer))
+            continue
+        elif prepare_result == PrepareResult.SUCCESS:
+            continue
+
+        execute_statement(statement)
+        print("Executed.")
 
 
 if __name__ == "__main__":
