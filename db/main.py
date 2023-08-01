@@ -33,6 +33,7 @@ def close_input_buffer(input_buffer):
 
 class MetaCommandResult(Enum):
     UNRECOGNIZED_COMMAND = 1
+    SUCCESS = 2
 
 
 class StatementType(Enum):
@@ -41,11 +42,11 @@ class StatementType(Enum):
 
 
 class PrepareResult(Enum):
-    SUCCESS = 1
-    UNRECOGNIZED_STATEMENT = 2
+    UNRECOGNIZED_STATEMENT = 1
+    SUCCESS = 2
 
 
-def do_meta_command(input_buffer):
+def do_meta_command(input_buffer: InputBuffer) -> MetaCommandResult:
     if input_buffer.buffer == ".exit":
         sys.exit(0)
     else:
