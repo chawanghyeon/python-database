@@ -55,7 +55,14 @@ def do_meta_command(input_buffer: InputBuffer) -> MetaCommandResult:
 
 def prepare_statement(input_buffer, statement):
     if input_buffer.buffer.startswith("insert"):
-        statement.type = StatementType.INSERT
+        try:
+            parts = input_buffer.buffer.split(" ")
+            statement.type = StatementType.INSERT
+            statement.row_to_insert.id = int(parts[1])
+            statement.row_to_insert.username = parts[2]
+            statement.row_to_insert.email = parts[3]
+        except:
+            return PrepareResult.SYNTAX_ERROR
         return PrepareResult.SUCCESS
     if input_buffer.buffer == "select":
         statement.type = StatementType.SELECT
