@@ -31,6 +31,13 @@ def close_input_buffer(input_buffer):
     input_buffer.buffer = None
 
 
+class Row:
+    def __init__(self):
+        self.id = 0
+        self.username = ""
+        self.email = ""
+
+
 class MetaCommandResult(Enum):
     UNRECOGNIZED_COMMAND = 1
     SUCCESS = 2
@@ -74,6 +81,7 @@ def prepare_statement(input_buffer, statement):
 class Statement:
     def __init__(self, statement_type):
         self.type = statement_type
+        self.row_to_insert = Row()
 
 
 def execute_statement(statement):
