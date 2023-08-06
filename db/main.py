@@ -1,4 +1,5 @@
 import sys
+import struct
 from enum import Enum
 
 
@@ -36,6 +37,60 @@ class Row:
         self.id = 0
         self.username = ""
         self.email = ""
+
+
+ID_FORMAT = "I"  # uint32 in Python's struct module
+USERNAME_FORMAT = "32s"  # 32-byte string
+EMAIL_FORMAT = "255s"  # 255-byte string
+
+ID_SIZE = struct.calcsize(ID_FORMAT)
+USERNAME_SIZE = struct.calcsize(USERNAME_FORMAT)
+EMAIL_SIZE = struct.calcsize(EMAIL_FORMAT)
+
+ID_OFFSET = 0
+USERNAME_OFFSET = ID_OFFSET + ID_SIZE
+EMAIL_OFFSET = USERNAME_OFFSET + USERNAME_SIZE
+ROW_SIZE = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE
+
+
+def serialize_row(source: Row, destination: bytearray):
+    packed_id = struct.pack(ID_FORMAT, source.id)
+    packed_username = struct.pack(USERNAME_FORMAT, source.username.encode())
+    packed_email = struct.pack(EMAIL_FORMAT, source.email.encode())
+
+    destination[ID_OFFSET : ID_OFFSET + ID_SIZE] = packed_id
+    destination[USERNAME_OFFSET : USERNAME_OFFSET + USERNAME_SIZE] = packed_username
+    destination[EMAIL_OFFSET : EMAIL_OFFSET + EMAIL_SIZE] = packed_email
+
+
+def deserialize_row(source: bytearray) -> Row:
+    row = Row()
+    row.id = struct.unpack(ID_FORMAT, source[ID_OFFSET : ID_OFFSET + ID_SIZE])[0]
+    row.username = (
+        struct.unpack(
+            USERNAME_FORMAT, source[USERNAME_OFFSET : USERNAME_OFFSET + USERNAME_SIZE]
+        )[0]
+        .decode()
+        .strip("\x00")
+    )
+    row.email = (
+        struct.unpack(EMAIL_FORMAT, source[EMAIL_OFFSET : EMAIL_OFFSET + EMAIL_SIZE])[0]
+        .decode()
+        .strip("\x00")
+    )
+    return row
+
+
+PAGE_SIZE = 4096
+TABLE_MAX_PAGES = 100
+ROWS_PER_PAGE = PAGE_SIZE // ROW_SIZE
+TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES
+
+
+class Table:
+    def __init__(self):
+        self.num_rows = 0
+        self.pages = [None] * TABLE_MAX_PAGES
 
 
 class MetaCommandResult(Enum):
