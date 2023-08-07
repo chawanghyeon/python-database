@@ -53,6 +53,23 @@ EMAIL_OFFSET = USERNAME_OFFSET + USERNAME_SIZE
 ROW_SIZE = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE
 
 
+def row_slot(table, row_num):
+    page_num = row_num // ROWS_PER_PAGE
+    try:
+        page = table.pages[page_num]
+    except IndexError:
+        page = bytearray(PAGE_SIZE)
+        table.pages[page_num] = page
+
+    if page is None:
+        page = bytearray(PAGE_SIZE)
+        table.pages[page_num] = page
+
+    row_offset = row_num % ROWS_PER_PAGE
+    byte_offset = row_offset * ROW_SIZE
+    return page[byte_offset : byte_offset + ROW_SIZE]
+
+
 def serialize_row(source: Row, destination: bytearray):
     packed_id = struct.pack(ID_FORMAT, source.id)
     packed_username = struct.pack(USERNAME_FORMAT, source.username.encode())
