@@ -70,6 +70,39 @@ def row_slot(table, row_num):
     return page[byte_offset : byte_offset + ROW_SIZE]
 
 
+class ExecuteResult(Enum):
+    TABLE_FULL = 1
+    SUCCESS = 2
+
+
+def execute_insert(statement, table):
+    if table.num_rows >= TABLE_MAX_ROWS:
+        return ExecuteResult.TABLE_FULL
+
+    row_to_insert = statement.row_to_insert
+    serialized_row = serialize_row(row_to_insert)
+    slot = row_slot(table, table.num_rows)
+    slot[
+        : len(serialized_row)
+    ] = serialized_row  # Copy the serialized row into the slot
+    table.num_rows += 1
+
+    return ExecuteResult.SUCCESS
+
+
+def execute_select(statement, table):
+    for i in range(table.num_rows):
+        slot = row_slot(table, i)
+        row = deserialize_row(slot)
+        print_row(row)
+    return ExecuteResult.SUCCESS
+
+
+def print_row(row):
+    # This function prints the row. You might need to define the exact printing logic.
+    print(f"ID: {row.id}, Username: {row.username}, Email: {row.email}")
+
+
 def serialize_row(source: Row, destination: bytearray):
     packed_id = struct.pack(ID_FORMAT, source.id)
     packed_username = struct.pack(USERNAME_FORMAT, source.username.encode())
