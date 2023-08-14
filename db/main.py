@@ -191,9 +191,18 @@ class Statement:
 
 def execute_statement(statement):
     if statement.type == "STATEMENT_INSERT":
-        print("This is where we would do an insert.")
+        return execute_insert(statement)
     elif statement.type == "STATEMENT_SELECT":
-        print("This is where we would do a select.")
+        return execute_select(statement)
+
+
+def new_table():
+    return Table()
+
+
+def free_table(table):
+    table.num_rows = 0
+    table.pages = [None] * TABLE_MAX_PAGES
 
 
 def main():
