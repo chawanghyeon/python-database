@@ -206,6 +206,7 @@ def free_table(table):
 
 
 def main():
+    table = new_table()
     input_buffer = InputBuffer()
     while True:
         print_prompt()
@@ -225,10 +226,18 @@ def main():
             print("Unrecognized keyword at start of '{}'.".format(input_buffer.buffer))
             continue
         elif prepare_result == PrepareResult.SUCCESS:
+            break
+        elif prepare_result == PrepareResult.SYNTAX_ERROR:
+            print("Syntax error. Could not parse statement.")
             continue
 
-        execute_statement(statement)
-        print("Executed.")
+        execute_result = execute_statement(statement)
+        if execute_result == ExecuteResult.TABLE_FULL:
+            print("Error: Table full.")
+            break
+        elif execute_result == ExecuteResult.SUCCESS:
+            print("Executed.")
+            break
 
 
 if __name__ == "__main__":
